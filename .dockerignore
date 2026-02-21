@@ -1,0 +1,33 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.secret
+*.key
+*.pem
+*-serviceAccountKey.json
+firebase-service-account.json
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs
+README.md
+HELP.md
