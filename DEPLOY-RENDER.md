@@ -109,6 +109,8 @@ git push -u origin main
 
 **Dockerfile Path:** `./Dockerfile`
 
+**Docker Build Context Directory:** `.` (root del repository)
+
 **Plan:** Free (o Starter per 7$/mese)
 
 **Auto-Deploy:** ✅ Yes
@@ -204,6 +206,7 @@ services:
     name: spring-weather-broadcast
     runtime: docker
     repo: https://github.com/TUO_USERNAME/spring-weather-broadcast
+    dockerCommand: "" # usa il CMD del Dockerfile
     branch: main
     dockerfilePath: ./Dockerfile
     plan: free
