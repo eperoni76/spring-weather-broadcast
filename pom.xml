@@ -39,7 +39,14 @@
 		<dependency>
 			<groupId>com.google.firebase</groupId>
 			<artifactId>firebase-admin</artifactId>
-			<version>9.4.2</version>
+			<version>9.4.3</version>
+		</dependency>
+
+		<!-- Google Auth Library (esplicita per evitare conflitti) -->
+		<dependency>
+			<groupId>com.google.auth</groupId>
+			<artifactId>google-auth-library-oauth2-http</artifactId>
+			<version>1.32.0</version>
 		</dependency>
 
 		<dependency>
