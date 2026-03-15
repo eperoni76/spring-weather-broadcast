@@ -1,5 +1,6 @@
 # Multi-stage build per ottimizzare dimensioni
-FROM eclipse-temurin:17-jdk-alpine AS builder
+# Nota: evitiamo Alpine per prevenire crash JNI con librerie native gRPC/Netty.
+FROM eclipse-temurin:17-jdk AS builder
 
 WORKDIR /app
 
@@ -16,8 +17,8 @@ COPY src ./src
 # Build dell'applicazione
 RUN ./mvnw clean package -DskipTests
 
-# Stage finale - immagine più leggera
-FROM eclipse-temurin:17-jre-alpine
+# Stage finale
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
@@ -29,10 +30,6 @@ EXPOSE 8080
 
 # Variabili d'ambiente di default
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
-
-#Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
 # Esegui l'applicazione
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

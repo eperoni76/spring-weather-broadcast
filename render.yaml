@@ -42,15 +42,24 @@ services:
       - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE
         value: true
 
+      - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT
+        value: 10000
+
+      - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT
+        value: 10000
+
+      - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT
+        value: 10000
+
       - key: NEWSLETTER_MAIL_FROM
         sync: false
 
       # CORS Configuration
       - key: CORS_ALLOWED_ORIGINS
-        value: https://weather-broadcast-pwa.firebaseapp.com
+        value: https://weather-broadcast-pwa.firebaseapp.com,https://weather-broadcast-pwa.web.app,http://localhost:4200
 
       - key: JAVA_OPTS
-        value: "-Xmx512m -Xms256m"
+        value: "-Xmx512m -Xms256m -Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true -Dio.netty.handler.ssl.noOpenSsl=true"
 
     # Health check
     healthCheckPath: /api/health
