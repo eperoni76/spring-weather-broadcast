@@ -46,7 +46,7 @@ case $choice in
             echo ""
             echo "⚠️  Ricorda di configurare:"
             echo "   - firebase-service-account.json in $RESOURCES_DIR/"
-            echo "   - spring.mail.username e spring.mail.password"
+            echo "   - spring.mail.host, spring.mail.port, spring.mail.username e spring.mail.password"
         else
             echo "❌ application-local.properties non trovato"
             echo "   Copia application-example.properties e configuralo:"
@@ -131,6 +131,10 @@ case $choice in
         echo "│ PORT                            │ 8080                                       │"
         echo "│ FIREBASE_DATABASE_URL           │ https://weather-broadcast-pwa-default-rt...│"
         echo "│ FIREBASE_SERVICE_ACCOUNT_JSON   │ <base64 da script opzione 2>               │"
+        echo "│ SPRING_MAIL_HOST                │ smtp.gmail.com                              │"
+        echo "│ SPRING_MAIL_PORT                │ 587                                         │"
+        echo "│ SPRING_MAIL_USERNAME            │ <account smtp>                              │"
+        echo "│ SPRING_MAIL_PASSWORD            │ <password/app password smtp>                │"
         echo "│ CORS_ALLOWED_ORIGINS            │ https://weather-broadcast-pwa.firebaseap...│"
         echo "│ JAVA_OPTS                       │ -Xmx512m -Xms256m                          │"
         echo "└─────────────────────────────────┴────────────────────────────────────────────┘"
@@ -139,6 +143,7 @@ case $choice in
         echo "   - Per FIREBASE_SERVICE_ACCOUNT_JSON usa opzione 2 di questo script"
         echo "   - URL completo CORS: https://weather-broadcast-pwa.firebaseapp.com"
         echo "   - URL Firebase DB: https://weather-broadcast-pwa-default-rtdb.firebaseio.com"
+        echo "   - Per Gmail usa una App Password dedicata come SPRING_MAIL_PASSWORD"
         ;;
     
     *)

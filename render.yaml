@@ -23,6 +23,28 @@ services:
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false # Configura manualmente (base64 encoded)
 
+      # Mail Configuration
+      - key: SPRING_MAIL_HOST
+        value: smtp.gmail.com
+
+      - key: SPRING_MAIL_PORT
+        value: 587
+
+      - key: SPRING_MAIL_USERNAME
+        sync: false
+
+      - key: SPRING_MAIL_PASSWORD
+        sync: false
+
+      - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH
+        value: true
+
+      - key: SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE
+        value: true
+
+      - key: NEWSLETTER_MAIL_FROM
+        sync: false
+
       # CORS Configuration
       - key: CORS_ALLOWED_ORIGINS
         value: https://weather-broadcast-pwa.firebaseapp.com

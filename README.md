@@ -1,6 +1,6 @@
 # Spring Weather Broadcast
 
-Backend Spring Boot per il sistema Weather Broadcast con notifiche push tramite Firebase Cloud Messaging.
+Backend Spring Boot per il sistema Weather Broadcast con notifiche push Firebase e invio newsletter email per gli admin.
 
 ## 🚀 Tecnologie
 
@@ -12,12 +12,14 @@ Backend Spring Boot per il sistema Weather Broadcast con notifiche push tramite 
 ## 📦 Dipendenze
 
 - **Spring Web** - REST API
+- **Spring Mail** - Invio email SMTP
 - **Lombok** - Riduzione boilerplate code
 - **Firebase Admin SDK 9.4.2** - Integrazione Firebase (Firestore, Auth, Cloud Messaging)
 
 ## ✨ Features
 
 - 📱 **Push Notifications** - Sistema completo notifiche push browser via FCM
+- ✉️ **Admin Newsletter** - Invio email HTML a soli admin o a tutti gli utenti registrati
 - 🔥 **Firebase Integration** - Firestore, Authentication, Cloud Messaging
 - 🐳 **Docker Ready** - Container ottimizzato per deploy cloud
 - 🌍 **CORS Configured** - Pronto per integrazione con frontend Angular
@@ -53,7 +55,7 @@ cd spring-weather-broadcast
 ./mvnw clean install
 ```
 
-3. Configura Firebase:
+3. Configura Firebase e SMTP:
 
 ```bash
 # Usa lo script helper
@@ -63,7 +65,7 @@ cd spring-weather-broadcast
 # 1. Scarica firebase-service-account.json dalla Firebase Console
 # 2. Salvalo in src/main/resources/
 # 3. Copia application-example.properties in application.properties
-# 4. Aggiorna application.properties con i tuoi valori
+# 4. Aggiorna application.properties con i tuoi valori Firebase e SMTP
 ```
 
 **IMPORTANTE**: I file con credenziali sono già in `.gitignore`
@@ -125,6 +127,14 @@ POST /api/notifications/subscribe     # Iscriviti a topic
 POST /api/notifications/unsubscribe   # Disiscrivi da topic
 POST /api/notifications/test          # Test notifica
 ```
+
+### Newsletter Admin
+
+```
+POST /api/admin/newsletter/send       # Invia newsletter HTML agli admin o a tutti gli utenti
+```
+
+Richiede header `Authorization: Bearer <firebase-id-token>` di un utente con ruolo `admin` nella collezione Firestore `utenti`.
 
 📖 Vedi [NOTIFICATIONS.md](NOTIFICATIONS.md) per esempi completi
 
