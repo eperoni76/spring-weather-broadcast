@@ -1,30 +1,36 @@
 package com.weatherbroadcast.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.firebase.cloud.FirestoreClient;
 import com.weatherbroadcast.dto.NewsletterRecipientScope;
 import com.weatherbroadcast.dto.NewsletterRequest;
 import com.weatherbroadcast.dto.NewsletterResponse;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.InternetAddress;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.HtmlUtils;
 
+import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
+import java.net.SocketTimeoutException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 /**
  * Servizio per l'invio di newsletter HTML ai destinatari presenti in Firestore.
@@ -35,11 +41,19 @@ import java.util.concurrent.ExecutionException;
 public class NewsletterService {
 
     private static final String USERS_COLLECTION = "utenti";
+    private static final String RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
-    private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
 
-    @Value("${newsletter.mail-from:${spring.mail.username:}}")
+    @Value("${newsletter.mail-from:}")
     private String configuredFromAddress;
+
+    @Value("${newsletter.resend.api-key:}")
+    private String resendApiKey;
 
     public NewsletterResponse sendNewsletter(NewsletterRequest request, String requestedBy) {
         validateRequest(request);
@@ -50,26 +64,35 @@ public class NewsletterService {
                     "Nessun destinatario valido trovato per il pubblico selezionato");
         }
 
+        validateDeliveryConfiguration();
+
         String fromAddress = resolveFromAddress();
         String htmlContent = buildHtmlContent(request);
         String plainTextContent = buildPlainTextContent(request);
 
         int sentCount = 0;
         int failedCount = recipients.invalidEmailsCount();
+        String firstFailureReason = null;
 
         for (String recipient : recipients.emails()) {
             try {
-                sendEmail(recipient, fromAddress, request.getSubject().trim(), plainTextContent, htmlContent);
+                sendEmailViaResend(recipient, fromAddress, request.getSubject().trim(), plainTextContent, htmlContent);
                 sentCount++;
-            } catch (MessagingException | MailException exception) {
+            } catch (NewsletterDeliveryException exception) {
                 failedCount++;
+                if (firstFailureReason == null) {
+                    firstFailureReason = resolveDeliveryFailureMessage(exception);
+                }
                 log.error("Errore nell'invio della newsletter a {}", recipient, exception);
             }
         }
 
         if (sentCount == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Invio newsletter fallito per tutti i destinatari");
+            String errorMessage = firstFailureReason != null
+                    ? firstFailureReason
+                    : "Invio newsletter fallito per tutti i destinatari";
+
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, errorMessage);
         }
 
         String responseMessage = failedCount == 0
@@ -162,32 +185,69 @@ public class NewsletterService {
         }
     }
 
-    private void sendEmail(
+    private void sendEmailViaResend(
             String recipient,
             String fromAddress,
             String subject,
             String plainTextContent,
-            String htmlContent) throws MessagingException {
+            String htmlContent) {
+        URI endpoint = URI.create(RESEND_EMAILS_ENDPOINT);
 
-        var mimeMessage = mailSender.createMimeMessage();
-        var helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+        String requestBody;
+        try {
+            requestBody = objectMapper.writeValueAsString(Map.of(
+                    "from", fromAddress,
+                    "to", List.of(recipient),
+                    "subject", subject,
+                    "text", plainTextContent,
+                    "html", htmlContent));
+        } catch (JsonProcessingException exception) {
+            throw new NewsletterDeliveryException("Errore nella serializzazione payload newsletter", exception);
+        }
 
-        helper.setFrom(fromAddress);
-        helper.setTo(recipient);
-        helper.setSubject(subject);
-        helper.setText(plainTextContent, htmlContent);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(endpoint)
+                .timeout(Duration.ofSeconds(15))
+                .header("Authorization", "Bearer " + resendApiKey.trim())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
 
-        mailSender.send(mimeMessage);
+        HttpResponse<String> response;
+        try {
+            response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new NewsletterDeliveryException("Invio verso provider email interrotto", exception);
+        } catch (IOException exception) {
+            throw new NewsletterDeliveryException("Errore di connessione verso provider email HTTPS", exception);
+        }
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            String body = response.body() != null ? response.body() : "";
+            String compactBody = body.length() > 300 ? body.substring(0, 300) + "..." : body;
+            throw new NewsletterDeliveryException(
+                    "Resend API ha risposto con stato " + response.statusCode()
+                            + (compactBody.isBlank() ? "" : ": " + compactBody));
+        }
     }
 
     private String resolveFromAddress() {
         String fromAddress = trimToNull(configuredFromAddress);
         if (fromAddress == null || !isValidEmail(fromAddress)) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Configurazione SMTP incompleta: newsletter.mail-from o spring.mail.username non valido");
+                    "Configurazione mittente non valida: imposta NEWSLETTER_MAIL_FROM "
+                            + "con un indirizzo email valido");
         }
 
         return fromAddress;
+    }
+
+    private void validateDeliveryConfiguration() {
+        if (trimToNull(resendApiKey) == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Configurazione provider incompleta: imposta RESEND_API_KEY");
+        }
     }
 
     private String buildHtmlContent(NewsletterRequest request) {
@@ -279,13 +339,8 @@ public class NewsletterService {
     }
 
     private boolean isValidEmail(String email) {
-        try {
-            InternetAddress internetAddress = new InternetAddress(email);
-            internetAddress.validate();
-            return true;
-        } catch (MessagingException exception) {
-            return false;
-        }
+        String normalized = trimToNull(email);
+        return normalized != null && EMAIL_PATTERN.matcher(normalized).matches();
     }
 
     private boolean isValidAbsoluteUrl(String value) {
@@ -303,6 +358,30 @@ public class NewsletterService {
         return value == null || value.isBlank();
     }
 
+    private String resolveDeliveryFailureMessage(Exception exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException || current instanceof ConnectException) {
+                return "Connessione HTTPS verso provider email non riuscita (timeout o rete). "
+                        + "Verifica RESEND_API_KEY e disponibilita' di api.resend.com dalla tua istanza Render.";
+            }
+
+            if (current instanceof NewsletterDeliveryException && current.getMessage() != null
+                    && current.getMessage().contains("Resend API")) {
+                return current.getMessage();
+            }
+
+            current = current.getCause();
+        }
+
+        String fallback = exception.getMessage();
+        if (fallback == null || fallback.isBlank()) {
+            return "Errore durante l'invio della newsletter.";
+        }
+
+        return "Errore durante l'invio della newsletter: " + fallback;
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -313,5 +392,16 @@ public class NewsletterService {
     }
 
     private record RecipientResolution(List<String> emails, int invalidEmailsCount) {
+    }
+
+    private static class NewsletterDeliveryException extends RuntimeException {
+
+        NewsletterDeliveryException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        NewsletterDeliveryException(String message) {
+            super(message);
+        }
     }
 }

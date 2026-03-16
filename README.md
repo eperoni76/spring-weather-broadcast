@@ -12,7 +12,6 @@ Backend Spring Boot per il sistema Weather Broadcast con notifiche push Firebase
 ## 📦 Dipendenze
 
 - **Spring Web** - REST API
-- **Spring Mail** - Invio email SMTP
 - **Lombok** - Riduzione boilerplate code
 - **Firebase Admin SDK 9.4.2** - Integrazione Firebase (Firestore, Auth, Cloud Messaging)
 
@@ -20,6 +19,7 @@ Backend Spring Boot per il sistema Weather Broadcast con notifiche push Firebase
 
 - 📱 **Push Notifications** - Sistema completo notifiche push browser via FCM
 - ✉️ **Admin Newsletter** - Invio email HTML a soli admin o a tutti gli utenti registrati
+	- Delivery via Resend API HTTPS
 - 🔥 **Firebase Integration** - Firestore, Authentication, Cloud Messaging
 - 🐳 **Docker Ready** - Container ottimizzato per deploy cloud
 - 🌍 **CORS Configured** - Pronto per integrazione con frontend Angular
@@ -55,7 +55,7 @@ cd spring-weather-broadcast
 ./mvnw clean install
 ```
 
-3. Configura Firebase e SMTP:
+3. Configura Firebase e invio email (Resend API HTTPS):
 
 ```bash
 # Usa lo script helper
@@ -65,7 +65,7 @@ cd spring-weather-broadcast
 # 1. Scarica firebase-service-account.json dalla Firebase Console
 # 2. Salvalo in src/main/resources/
 # 3. Copia application-example.properties in application.properties
-# 4. Aggiorna application.properties con i tuoi valori Firebase e SMTP
+# 4. Aggiorna application.properties con i tuoi valori Firebase e delivery email
 ```
 
 **IMPORTANTE**: I file con credenziali sono già in `.gitignore`
