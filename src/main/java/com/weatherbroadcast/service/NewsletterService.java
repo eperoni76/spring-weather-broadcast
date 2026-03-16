@@ -234,10 +234,11 @@ public class NewsletterService {
 
     private String resolveFromAddress() {
         String fromAddress = trimToNull(configuredFromAddress);
-        if (fromAddress == null || !isValidEmail(fromAddress)) {
+        if (fromAddress == null || !isValidFromAddress(fromAddress)) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Configurazione mittente non valida: imposta NEWSLETTER_MAIL_FROM "
-                            + "con un indirizzo email valido");
+                            + "con un indirizzo email valido (es. newsletter@send.ilcrima.it) "
+                            + "oppure Nome <newsletter@send.ilcrima.it>");
         }
 
         return fromAddress;
@@ -341,6 +342,27 @@ public class NewsletterService {
     private boolean isValidEmail(String email) {
         String normalized = trimToNull(email);
         return normalized != null && EMAIL_PATTERN.matcher(normalized).matches();
+    }
+
+    private boolean isValidFromAddress(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return false;
+        }
+
+        if (isValidEmail(normalized)) {
+            return true;
+        }
+
+        int start = normalized.lastIndexOf('<');
+        int end = normalized.lastIndexOf('>');
+        if (start <= 0 || end <= start + 1 || end != normalized.length() - 1) {
+            return false;
+        }
+
+        String displayName = normalized.substring(0, start).trim();
+        String email = normalized.substring(start + 1, end).trim();
+        return !displayName.isBlank() && isValidEmail(email);
     }
 
     private boolean isValidAbsoluteUrl(String value) {
